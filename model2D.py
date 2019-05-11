@@ -24,7 +24,7 @@ class Model2D:
 
 		self.N = 3001 # steps
 		self.time = np.linspace(0,300,self.N)
-		
+
 		self.xr = np.zeros((self.N,6))
 		self.getXr(q0, qh, zt, T) # generate reference trajectory
 
@@ -34,7 +34,6 @@ class Model2D:
 		self.x[0,:] = self.xr[0,:]    # set init state to reference state
 		self.u[0,:] = np.array([0,0])
 
-		
 		# simulation starts
 		for i in range(1,self.N):
 			# calculate control input
@@ -53,12 +52,14 @@ class Model2D:
 		plt.plot(self.time,self.x[:,0],'r-',label='y(t)')
 		plt.plot(self.time,self.x[:,1],'g-',label='z(t)')
 		plt.plot(self.time,self.x[:,2],'b-',label='phi(t)')
-		plt.plot(self.time,self.xr[:,0], 'r--',label='yr(t)')
-		plt.plot(self.time,self.xr[:,1], 'g--',label='zr(t)')
+		plt.plot(self.time,self.xr[:,0],'r--',label='yr(t)')
+		plt.plot(self.time,self.xr[:,1],'g--',label='zr(t)')
 		plt.ylabel('values')
 		plt.xlabel('time')
 		plt.legend(loc='best')
+		# You can zoom in to see details in this figure.
 		plt.show()
+
 
 	# 2d quadrotor model to be integrated
 	def model(self,x,t,u):
@@ -124,12 +125,12 @@ class Model2D:
 		g = 9.8
 		Ixx = 1.43*10.0**(-5.0)
 
-		kdy = 0.5
-		kpy = 0.8
-		kdz = 4.0
-		kpz = 6.4
+		kdy = 4.0
+		kpy = 4.0
+		kdz = 11.0
+		kpz = 30.0
 		kdphi = 4.0
-		kpphi = 6.4
+		kpphi = 4.0
 
 		x = self.x[step-1,:] # state
 		y = self.xr[step-1,0] # reference
