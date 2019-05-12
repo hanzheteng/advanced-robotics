@@ -101,11 +101,16 @@ class Model3D:
 
 		r_dot = np.matrix(x[3:6]).transpose()
 
-		Omega_dot = np.matrix(x[9:12]).transpose()
-
+		omega = np.matrix(x[9:12]).transpose()
 		phi = x[6]
 		theta = x[7]
 		psi = x[8]
+		R0 = np.matrix([[1, 0 ,-np.sin(theta)],
+					    [0 ,np.cos(phi),np.cos(theta)*np.sin(phi)],
+					    [0 ,-np.sin(phi),np.cos(theta)*np.cos(phi)]])
+		R0_inv = np.linalg.inv(R0)
+		Omega_dot = R0_inv*omega
+
 		Rx_phi = np.matrix([[1, 0, 0], [0, np.cos(phi), np.sin(phi)], [0, -np.sin(phi), np.cos(phi)]])
 		Ry_theta = np.matrix([[np.cos(theta), 0, -np.sin(theta)], [0, 1, 0], [np.sin(theta), 0, np.cos(theta)]])
 		Rz_psi = np.matrix([[np.cos(psi), np.sin(psi), 0], [-np.sin(psi), np.cos(psi), 0], [0, 0, 1]])
@@ -117,14 +122,10 @@ class Model3D:
 
 		Ib = np.matrix([[1.43,0,0],[0,1.43,0], [0,0,2.89]])*10**(-5)
 		Ib_inv = np.linalg.inv(Ib)
-		R0 = np.matrix([[1, 0 ,-np.sin(theta)],
-					    [0 ,np.cos(phi),np.cos(theta)*np.sin(phi)],
-					    [0 ,-np.sin(phi),np.cos(theta)*np.cos(phi)]])
-		R0_inv = np.linalg.inv(R0)
 		Moment = np.matrix(u[1:4]).transpose()
-		Omega_ddot = R0_inv*Ib_inv*(Moment - np.cross(R0*Omega_dot,Ib*R0*Omega_dot, axis=0) )
+		omega_dot = Ib_inv*(Moment - np.cross(omega,Ib*omega, axis=0) )
 
-		dxdt = np.array([r_dot, r_ddot, Omega_dot, Omega_ddot]) # 12 dimension
+		dxdt = np.array([r_dot, r_ddot, Omega_dot, omega_dot]) # 12 dimension
 		dxdt = np.reshape(dxdt,12)
 		return dxdt
 
@@ -233,23 +234,23 @@ class Model3D:
 		kppsi = 60000
 
 		Omega = np.matrix(self.X[step-1,6:9]).transpose()
-		Omega_dot = np.matrix(self.X[step-1,9:12]).transpose()
+		omega = np.matrix(self.X[step-1,9:12]).transpose()
 		phi = Omega[0]
 		theta = Omega[1]
 		psi = Omega[2]
-		kd = np.matrix([[kdphi,0,0], [0,kdtheta,0], [0,0,kdpsi]])
-		kp = np.matrix([[kpphi,0,0], [0,kptheta,0], [0,0,kppsi]])
+		kd = np.matrix([[kdphi,0,0], [0,kdtheta,0], [0,0,kdpsi]], dtype='float')
+		kp = np.matrix([[kpphi,0,0], [0,kptheta,0], [0,0,kppsi]], dtype='float')
 		I = np.matrix([[1.43,0,0], [0,1.43,0], [0,0,2.89]])*10**(-5)
 
-		W_inv = np.matrix([[1, 0 ,-np.sin(theta)],
-						  [0 ,np.cos(phi),np.cos(theta)*np.sin(phi)],
-						  [0 ,-np.sin(phi),np.cos(theta)*np.cos(phi)]])
-		omega = W_inv * Omega_dot
+		R0 = np.matrix([[1, 0 ,-np.sin(theta)],
+						[0 ,np.cos(phi),np.cos(theta)*np.sin(phi)],
+						[0 ,-np.sin(phi),np.cos(theta)*np.cos(phi)]], dtype='float')
+		R0_inv = np.linalg.inv(R0)
 		omega_bracket = np.matrix([[0,-omega[2],omega[1]],[omega[2],0,-omega[0]],[-omega[1],omega[0],0]])
 		omega_dot = omega_bracket*I*omega
 		Omega_des = np.matrix(self.Omega_des).transpose()
 
-		self.M = I*W_inv*(kd*(-Omega_dot)+kp*(Omega_des-Omega))+omega_dot
+		self.M = I*R0*(kd*(-R0_inv*omega)+kp*(Omega_des-Omega))+omega_dot
 		self.U[step-1,1:4] = np.array(self.M.transpose())
 
 
