@@ -47,18 +47,35 @@ class Model2D:
 			output = odeint(self.model, self.x[i-1,:], tspan, args=(self.u[i-1,:],)) 
 			self.x[i,:] = output[1,:]  # take the value at time i and drop that at time i-1
 
-		# plot results
-		plt.plot(self.time,self.u[:,0],'m-',label='u1(t)')
-		plt.plot(self.time,self.u[:,1],'k-',label='u2(t)')
-		plt.plot(self.time,self.x[:,0],'r-',label='y(t)')
-		plt.plot(self.time,self.x[:,1],'g-',label='z(t)')
-		plt.plot(self.time,self.x[:,2],'b-',label='phi(t)')
-		plt.plot(self.time,self.xr[:,0],'r--',label='yr(t)')
-		plt.plot(self.time,self.xr[:,1],'g--',label='zr(t)')
+		# plot results - you can zoom in to see details in these figures
+		plt.figure(1)
+		plt.plot(self.time,self.xr[:,0],'r-',label='yr(t)')
+		plt.plot(self.time,self.xr[:,1],'g-',label='zr(t)')
 		plt.ylabel('values')
 		plt.xlabel('time')
 		plt.legend(loc='best')
-		# You can zoom in to see details in this figure.
+		plt.title('reference trajectory')
+
+		plt.figure(2)
+		plt.plot(self.time,self.u[:,0],'m-',label='u1(t)')
+		plt.plot(self.time,self.u[:,1],'k-',label='u2(t)')
+		plt.ylabel('values')
+		plt.xlabel('time')
+		plt.legend(loc='best')
+		plt.title('control input')
+
+		plt.figure(3)
+		plt.plot(self.time,self.x[:,0],'r-',label='y(t)')
+		plt.plot(self.time,self.x[:,1],'g-',label='z(t)')
+		plt.plot(self.time,self.x[:,2],'b-',label='phi(t)')
+		plt.plot(self.time,self.x[:,3],'r--',label='y`(t)')
+		plt.plot(self.time,self.x[:,4],'g--',label='z`(t)')
+		plt.plot(self.time,self.x[:,5],'b--',label='phi`(t)')
+		plt.ylabel('values')
+		plt.xlabel('time')
+		plt.legend(loc='best')
+		plt.title('state evolution')
+
 		plt.show()
 
 
