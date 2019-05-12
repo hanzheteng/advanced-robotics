@@ -37,7 +37,8 @@ class Model2D:
 		# simulation starts
 		for i in range(1,self.N):
 			# calculate control input
-			self.controller(step=i)
+			self.positionController(step=i)
+			self.attitudeController(step=i)
 
 			# span for next time step
 			tspan = [self.time[i-1],self.time[i]] 
@@ -120,17 +121,13 @@ class Model2D:
 			self.xr[step,:] = [y, z, 0, y_dot, z_dot, 0] # phi = 0
 
 
-	def controller(self, step):
+	def positionController(self, step):
 		m = 0.03
 		g = 9.8
-		Ixx = 1.43*10.0**(-5.0)
-
 		kdy = 4.0
 		kpy = 4.0
 		kdz = 11.0
 		kpz = 30.0
-		kdphi = 4.0
-		kpphi = 4.0
 
 		x = self.x[step-1,:] # state
 		y = self.xr[step-1,0] # reference
@@ -138,17 +135,23 @@ class Model2D:
 		y_dot = self.xr[step-1,3] # reference
 		z_dot = self.xr[step-1,4] # reference
 
-		# Position Controller
 		phi = -1/g*(kdy*(y_dot-x[3])+kpy*(y-x[0]))
 		phi_dot = -kdy*x[2]-1/g*kpy*(y_dot-x[3])
 		phi_ddot = -kdy*x[5]+kpy*x[2]
-		self.u1 = m*( g + kdz*(z_dot-x[4]) + kpz*(z-x[1]) )
+
+		self.u1 = m*(g+kdz*(z_dot-x[4])+kpz*(z-x[1]))
 		self.phi_des = np.array([phi, phi_dot, phi_ddot])
 
-		# Attitude Controller
+	def attitudeController(self, step):
+		Ixx = 1.43*10.0**(-5.0)
+		kdphi = 4.0
+		kpphi = 4.0
+
+		x = self.x[step-1,:]
 		phi_ddot = self.phi_des[2]
 		phi_dot = self.phi_des[1]
 		phi = self.phi_des[0]
+
 		self.u2 = Ixx*(phi_ddot+kdphi*(phi_dot-x[5])+kpphi*(phi-x[2]))
 		self.u[step-1,:] = np.array([self.u1, self.u2])
 
