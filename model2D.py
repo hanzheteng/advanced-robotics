@@ -1,32 +1,41 @@
 #!/usr/bin/env python
 
 import rospy
-from std_msgs.msg import Float64
-from geometry_msgs.msg import Transform
-from geometry_msgs.msg import Vector3
+from std_msgs.msg import String
 
 import numpy as np
-import scipy as sp
 from scipy.integrate import odeint
 import matplotlib.pyplot as plt
 
 class Model2D:
 	def __init__(self):
-		#rospy.init_node('model2D')
-		#rospy.Subscriber("input2D", Vector3, self.callback)
-		#self.state = rospy.Publisher('state2D',Transform,queue_size = 1)
-		#msg_pub = Transform()
-		#rospy.spin()
-		q0 = np.array([2, 0])  # y, z - you cannot track phi in 2d case
-		qh = np.array([5, 10]) # y, z - desired pose
-		zt = np.array([8])     # take-off height
-		T  = np.array([100])    # hovering time in second; taking value from 50 to 150
+		rospy.init_node('model2D')
+		rospy.Subscriber("model2D", String, self.callback)
+		rospy.spin()
 
+		#q0 = np.array([2, 0])
+		#qh = np.array([5, 10])
+		#zt = np.array([8]) 
+		#T  = np.array([100]) 
+		#self.runSimulation(q0, qh, zt, T)
+
+
+	def callback(self, msg):
+		message = str(msg.data)
+		data = map(float, message.split())
+		q0 = np.array([data[0], data[1]])  # y, z - you cannot track phi in 2d case
+		qh = np.array([data[2], data[3]])  # y, z - desired pose
+		zt = np.array(data[4])  # take-off height
+		T = np.array(data[5])   # hovering time in second; taking value from 50 to 150
+		self.runSimulation(q0, qh, zt, T)
+
+
+	def runSimulation(self, q0, qh, zt, T):
 		self.N = 3001 # steps
 		self.time = np.linspace(0,300,self.N)
 
 		self.xr = np.zeros((self.N,6))
-		self.getXr(q0, qh, zt, T) # generate reference trajectory
+		self.getReference(q0, qh, zt, T) # generate reference trajectory
 
 		self.x = np.zeros((self.N,6))  # index 0-5
 		self.u = np.zeros((self.N,2))  # index 0-1
@@ -83,9 +92,9 @@ class Model2D:
 	def model(self,x,t,u):
 		# x[0] - y ; x[1] - z ;  x[2] - phi
 		# x[3] - y`; x[4] - z`;  x[5] - phi`
+		m = 0.03
 		g = 9.8
 		Ixx = 1.43*10.0**(-5.0)
-		m = 0.03
 
 		y_dot = x[3]
 		z_dot = x[4]
@@ -98,7 +107,7 @@ class Model2D:
 		return dxdt
 
 
-	def getXr(self, q0, qh, zt, T):
+	def getReference(self, q0, qh, zt, T):
 		y0 = q0[0]
 		z0 = q0[1]
 		yh = qh[0]

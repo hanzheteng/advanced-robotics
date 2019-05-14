@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch>
+    <node name="main" pkg="advanced-robotics" type="main.py" output="screen"/>
+    <node name="model2D" pkg="advanced-robotics" type="model2D.py" output="screen"/>
+    <node name="model3D" pkg="advanced-robotics" type="model3D.py" output="screen"/>
+</launch>

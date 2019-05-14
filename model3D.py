@@ -1,22 +1,42 @@
 #!/usr/bin/env python
 
 import rospy
-from std_msgs.msg import Float64
-from geometry_msgs.msg import Transform
-from geometry_msgs.msg import Vector3
+from std_msgs.msg import String
 
 import numpy as np
-import scipy as sp
 from scipy.integrate import odeint
 import matplotlib.pyplot as plt
 
 class Model3D:
 	def __init__(self):
-		q0 = np.array([2, 2, 0, np.pi/4])  # x, y, z, psi - you can only track x,y,z,psi in 3d case
-		qh = np.array([6, 5, 10, np.pi/3]) # x, y, z, psi - desired pose
-		zt = np.array([8])     # take-off height
-		T  = np.array([100])    # hovering time in second; taking value from 50 to 150
+		rospy.init_node('model3D')
+		rospy.Subscriber("model3D", String, self.callback)
+		rospy.spin()
 
+		#q0 = np.array([2, 2, 0, np.pi/4])
+		#qh = np.array([6, 5, 10, np.pi/3])
+		#zt = np.array([8])
+		#T  = np.array([100])
+		#self.runSimulation(q0, qh, zt, T)
+
+
+	def callback(self, msg):
+		# split string data into list
+		message = str(msg.data)
+		data = map(float, message.split())
+		# x, y, z, psi - you can only track x,y,z,psi in 3d case
+		q0 = np.array([data[0], data[1], data[2], data[3]])
+		# x, y, z, psi - desired pose
+		qh = np.array([data[4], data[5], data[6], data[7]])
+		# take-off height
+		zt = np.array(data[8]) 
+		# hovering time in second; taking value from 50 to 150
+		T = np.array(data[9])
+		# run simulation
+		self.runSimulation(q0, qh, zt, T)
+
+
+	def runSimulation(self, q0, qh, zt, T):
 		self.N = 3001 # steps
 		self.time = np.linspace(0,300,self.N)
 
@@ -47,7 +67,7 @@ class Model3D:
 		plt.plot(self.time,self.Xr[:,0],'r-',label='xr(t)')
 		plt.plot(self.time,self.Xr[:,1],'g-',label='yr(t)')
 		plt.plot(self.time,self.Xr[:,2],'b-',label='zr(t)')
-		plt.plot(self.time,self.Xr[:,8],'k-',label='psi(t)')
+		plt.plot(self.time,self.Xr[:,8],'k-',label='psir(t)')
 		plt.ylabel('values')
 		plt.xlabel('time')
 		plt.legend(loc='best')
@@ -94,13 +114,15 @@ class Model3D:
 	def model(self,x,t,u):
 		# x[0] - x ; x[1] - y ;  x[2] - z
 		# x[3] - x`; x[4] - y`;  x[5] - z`
-		# x[6] - phi ;  x[7] - theta ;   x[8] - psi
-		# x[9] - phi`; x[10] - theta`;  x[11] - psi`
+		# x[6] - phi;      x[7] - theta;     x[8] - psi
+		# x[9] - omega_x; x[10] - omega_y;  x[11] - omega_z
 		g = 9.8
 		m = 0.03
 
+		# compute r_dot
 		r_dot = np.matrix(x[3:6]).transpose()
 
+		# compute Omega_dot
 		omega = np.matrix(x[9:12]).transpose()
 		phi = x[6]
 		theta = x[7]
@@ -111,6 +133,7 @@ class Model3D:
 		R0_inv = np.linalg.inv(R0)
 		Omega_dot = R0_inv*omega
 
+		# compute r_ddot
 		Rx_phi = np.matrix([[1, 0, 0], [0, np.cos(phi), np.sin(phi)], [0, -np.sin(phi), np.cos(phi)]])
 		Ry_theta = np.matrix([[np.cos(theta), 0, -np.sin(theta)], [0, 1, 0], [np.sin(theta), 0, np.cos(theta)]])
 		Rz_psi = np.matrix([[np.cos(psi), np.sin(psi), 0], [-np.sin(psi), np.cos(psi), 0], [0, 0, 1]])
@@ -120,11 +143,13 @@ class Model3D:
 		F_vec = np.matrix([[0],[0],[u[0]/m]])
 		r_ddot = g_vec + Rsb*F_vec
 
+		# compute omega_dot
 		Ib = np.matrix([[1.43,0,0],[0,1.43,0], [0,0,2.89]])*10**(-5)
 		Ib_inv = np.linalg.inv(Ib)
 		Moment = np.matrix(u[1:4]).transpose()
 		omega_dot = Ib_inv*(Moment - np.cross(omega,Ib*omega, axis=0) )
 
+		# put everything together
 		dxdt = np.array([r_dot, r_ddot, Omega_dot, omega_dot]) # 12 dimension
 		dxdt = np.reshape(dxdt,12)
 		return dxdt
