@@ -192,12 +192,12 @@ class Model3D:
 	def positionController(self, step):
 		m = 0.03
 		g = 9.8
-		kdx = 0.4
-		kpx = 0.2
-		kdz = 0.4
-		kpz = 1.25
-		kdy = 0.4
-		kpy = 0.2
+		kdx = 2
+		kpx = 1
+		kdy = 2
+		kpy = 1
+		kdz = 2
+		kpz = 1
 
 		# slicing 0:6 takes 0,1,2,3,4,5
 		R = self.X[step-1, 0:6] # translational state feedback
@@ -226,12 +226,12 @@ class Model3D:
 
 
 	def attitudeController(self, step):
-		kdphi = 20000
-		kpphi = 70000
-		kdtheta = 20000
-		kptheta = 70000
-		kdpsi = 12000
-		kppsi = 60000
+		kdphi = 8
+		kpphi = 16
+		kdtheta = 8
+		kptheta = 16
+		kdpsi = 2
+		kppsi = 1
 
 		Omega = np.matrix(self.X[step-1,6:9]).transpose()
 		omega = np.matrix(self.X[step-1,9:12]).transpose()
