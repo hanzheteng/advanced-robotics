@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import time
 import rospy
 from std_msgs.msg import String
 
@@ -37,6 +38,10 @@ class Model3D:
 
 
 	def runSimulation(self, q0, qh, zt, T):
+		time.sleep(2)
+		print(' ')
+		print('3D model is running... Please wait for a moment')
+		print(' ')
 		self.N = 3001 # steps
 		self.time = np.linspace(0,300,self.N)
 

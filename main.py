@@ -73,7 +73,3 @@ if __name__ == '__main__':
 	if dimension == 3:
 		pub3d.publish(msg)
 
-	print(' ')
-	print(str(dimension) + 'D model is running... Please wait for a moment')
-	print(' ')
-	
