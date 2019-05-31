@@ -1,15 +1,6 @@
-
-# coding: utf-8
-
-# In[1]:
-
-
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-
-
-# In[2]:
 
 
 # Function to plot a cube
@@ -23,9 +14,6 @@ def plot_linear_cube(ax, x, y, z, dx, dy, dz, color):
     ax.plot3D([x-dx/2, x-dx/2], [y+dy/2, y+dy/2], [z-dz/2, z+dz/2], **kwargs)
     ax.plot3D([x+dx/2, x+dx/2], [y+dy/2, y+dy/2], [z-dz/2, z+dz/2], **kwargs)
     ax.plot3D([x+dx/2, x+dx/2], [y-dy/2, y-dy/2], [z-dz/2, z+dz/2], **kwargs)
-
-
-# In[3]:
 
 
 # Unfinished function for generate the map
@@ -63,14 +51,8 @@ class Grid_map:
         plt.show()
 
 
-# In[4]:
-
-
 def takeFirst(elem):
     return elem[0]
-
-
-# In[5]:
 
 
 class Node:
@@ -84,16 +66,10 @@ class Node:
         self.index = ind
 
 
-# In[6]:
-
-
 class Astar:
     def __init__(self, Start_Goal_point):
         
         # Add ros here to get Start_Goal_point information [3*1,3*1]
-        # rospy.init_node('Astar')
-        # rospy.Subscriber("Astar", String, self.callback)
-        # rospy.spin()
     
         # Grid_map(graph)
         self.s_point = Node(0,20,20,[0,0,0],1)       
