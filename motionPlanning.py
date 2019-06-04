@@ -136,6 +136,8 @@ class Node:
 
 class Astar:
     def __init__(self, Start_Goal_point,graph):
+        '''  global variable here  '''
+        global running_time
         
         # Start_Goal_point information [3*1,3*1]
         self.data = Start_Goal_point
@@ -145,8 +147,11 @@ class Astar:
         
         self.info = str(graph)
         
-        self.map_Generate()   
+        running_time.append(time.time())
+        self.map_Generate()
+        running_time.append(time.time())
         self.Astar_run()
+        running_time.append(time.time())
         self.optimal_plot()
         
     def map_Generate(self):
@@ -161,7 +166,7 @@ class Astar:
         extend_z = (quadrotor_x**2+quadrotor_z**2)**(0.5)
         
         # Generate obstacle expansion graph
-        fig = plt.figure()
+        fig = plt.figure(1)
         self.ax = Axes3D(fig)   
         self.planeSet = [] # plane for test
         self.verticesSet = [] # position of nodes
@@ -268,11 +273,13 @@ class Astar:
     def optimal_plot(self):
         path = np.transpose(self.optimal_path)
         self.ax.plot3D(path[0],path[1],path[2],'g*-')
-        plt.show()
+        #plt.show()
 
 
 class Model3D:
 	def __init__(self, data, waypoints):
+		'''  global variable here  '''
+		global running_time
 		q0 = np.array([data[0], data[1], data[2], data[3]])
 		qh = np.array([data[4], data[5], data[6], data[7]])
 
@@ -281,6 +288,7 @@ class Model3D:
 		print(' ')
 		
 		self.getReference(q0, qh, waypoints) # generate reference trajectory
+		running_time.append(time.time())
 
 		self.X = np.zeros((self.N,12))  # index 0-11
 		self.U = np.zeros((self.N,4))   # index 0-3
@@ -301,8 +309,16 @@ class Model3D:
 			output = odeint(self.model, self.X[i-1,:], tspan, args=(self.U[i-1,:],)) 
 			self.X[i,:] = output[1,:]  # take the value at time i and drop that at time i-1
 
+		running_time.append(time.time())
+		print('time for (1): ' + str(running_time[1]-running_time[0]) )
+		print('time for (2): ' + str(running_time[2]-running_time[1]) )
+		print('time for (3): ' + str(running_time[3]-running_time[2]) )
+		print('time for (4) and (5): ' + str(running_time[4]-running_time[3]) )
+		print('total time: ' + str(running_time[4]-running_time[0]) )
+
+
 		# plot results - you can zoom in to see details in these figures
-		plt.figure(1)
+		plt.figure(2)
 		plt.plot(self.time,self.Xr[:,0],'r-',label='xr(t)')
 		plt.plot(self.time,self.Xr[:,1],'g-',label='yr(t)')
 		plt.plot(self.time,self.Xr[:,2],'b-',label='zr(t)')
@@ -312,7 +328,7 @@ class Model3D:
 		plt.legend(loc='best')
 		plt.title('reference trajectory')
 
-		plt.figure(2)
+		plt.figure(3)
 		plt.plot(self.time,self.U[:,0],'m-',label='F(t)')
 		plt.plot(self.time,self.U[:,1],'r-',label='M1(t)')
 		plt.plot(self.time,self.U[:,2],'g-',label='M2(t)')
@@ -322,7 +338,7 @@ class Model3D:
 		plt.legend(loc='best')
 		plt.title('control input')
 
-		plt.figure(3)
+		plt.figure(4)
 		plt.plot(self.time,self.X[:,0],'r-',label='x(t)')
 		plt.plot(self.time,self.X[:,1],'g-',label='y(t)')
 		plt.plot(self.time,self.X[:,2],'b-',label='z(t)')
@@ -334,7 +350,7 @@ class Model3D:
 		plt.legend(loc='best')
 		plt.title('translational state evolution')
 
-		plt.figure(4)
+		plt.figure(5)
 		plt.plot(self.time,self.X[:,6],'r-',label='phi(t)')
 		plt.plot(self.time,self.X[:,7],'g-',label='theta(t)')
 		plt.plot(self.time,self.X[:,8],'b-',label='psi(t)')
@@ -397,7 +413,6 @@ class Model3D:
 	def getReference(self, q0, qh, waypoints):
 		waypoint_num = len(waypoints)
 		waypoint_nparray = np.array(waypoints)
-		print(waypoint_nparray)
 		waypoint_vectors = list()
 		distance = list()
 		time_step = list()
@@ -408,15 +423,9 @@ class Model3D:
 			time_step.append(int(distance[i]/2.0)+1) # max speed is 2m/s
 			total_time_step += time_step[i]
 		
-		print(waypoint_vectors)
-		print(distance)
-		print(time_step)
-		print(total_time_step)
 		self.N = total_time_step*10 + 1  # steps, int
 		self.time = np.linspace(0,total_time_step,self.N) # in every 0.1 second
 		self.Xr = np.zeros((self.N,12))
-		print(self.N)
-		print(self.time[-1])
 
 		psi0 = q0[3]
 		psih = qh[3]
@@ -514,6 +523,8 @@ if __name__ == '__main__':
     print('Processing...')
     
     waypoints = list()
+    running_time = list()
+
     Astar(init_goal,str(graph_s))
     Model3D(init_goal, waypoints)
 
