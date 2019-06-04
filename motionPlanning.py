@@ -1,8 +1,10 @@
+#!/usr/bin/env python
+import sys
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-import sys
-
+from scipy.integrate import odeint
 
 # Function to plot a cube
 def plot_linear_cube(ax, x, y, z, dx, dy, dz, color):
@@ -136,9 +138,7 @@ class Astar:
     def __init__(self, Start_Goal_point,graph):
         
         # Start_Goal_point information [3*1,3*1]
-          
-        sentence = str(Start_Goal_point)
-        self.data = list(map(float, sentence.split()))
+        self.data = Start_Goal_point
         self.openset = [] # (node_total_cost,node)
         self.closedset = []
         self.optimal_path = []
@@ -198,7 +198,7 @@ class Astar:
         current_weight = np.zeros((M))
         k = 0 # index for iterition
         start_position = np.array([self.data[0],self.data[1],self.data[2]])
-        goal_position = np.array([self.data[3],self.data[4],self.data[5]])
+        goal_position = np.array([self.data[4],self.data[5],self.data[6]])
         Heuri[k] = np.linalg.norm(start_position-goal_position)
         
         
@@ -226,6 +226,8 @@ class Astar:
 
               
     def Astar_run(self):
+        '''  global variable here  '''
+        global waypoints    
         self.openset.append((self.Nodelist[0].total_cost,self.Nodelist[0]))
         
         while self.openset:
@@ -240,7 +242,9 @@ class Astar:
                     current_parent = current_parent.parent[0]
                 self.optimal_path.append(self.s_point.position)
                 self.optimal_path.reverse()
+                print("The waypoints are the following:")
                 print(np.array(self.optimal_path))
+                waypoints = self.optimal_path
                 break
                 
             #neighborset = current_node.neighbor
@@ -265,25 +269,251 @@ class Astar:
         path = np.transpose(self.optimal_path)
         self.ax.plot3D(path[0],path[1],path[2],'g*-')
         plt.show()
-            
-            
+
+
+class Model3D:
+	def __init__(self, data, waypoints):
+		q0 = np.array([data[0], data[1], data[2], data[3]])
+		qh = np.array([data[4], data[5], data[6], data[7]])
+
+		print(' ')
+		print('3D model is running... Please wait for a moment')
+		print(' ')
+		
+		self.getReference(q0, qh, waypoints) # generate reference trajectory
+
+		self.X = np.zeros((self.N,12))  # index 0-11
+		self.U = np.zeros((self.N,4))   # index 0-3
+
+		self.X[0,:] = self.Xr[0,:]    # set init state to reference state
+		self.U[0,:] = np.array([0,0,0,0])
+
+		# simulation starts
+		for i in range(1,self.N):
+			# calculate control input
+			self.positionController(step=i)
+			self.attitudeController(step=i)
+
+			# span for next time step
+			tspan = [self.time[i-1],self.time[i]] 
+
+			# solve for next step
+			output = odeint(self.model, self.X[i-1,:], tspan, args=(self.U[i-1,:],)) 
+			self.X[i,:] = output[1,:]  # take the value at time i and drop that at time i-1
+
+		# plot results - you can zoom in to see details in these figures
+		plt.figure(1)
+		plt.plot(self.time,self.Xr[:,0],'r-',label='xr(t)')
+		plt.plot(self.time,self.Xr[:,1],'g-',label='yr(t)')
+		plt.plot(self.time,self.Xr[:,2],'b-',label='zr(t)')
+		plt.plot(self.time,self.Xr[:,8],'k-',label='psir(t)')
+		plt.ylabel('values')
+		plt.xlabel('time')
+		plt.legend(loc='best')
+		plt.title('reference trajectory')
+
+		plt.figure(2)
+		plt.plot(self.time,self.U[:,0],'m-',label='F(t)')
+		plt.plot(self.time,self.U[:,1],'r-',label='M1(t)')
+		plt.plot(self.time,self.U[:,2],'g-',label='M2(t)')
+		plt.plot(self.time,self.U[:,3],'b-',label='M3(t)')
+		plt.ylabel('values')
+		plt.xlabel('time')
+		plt.legend(loc='best')
+		plt.title('control input')
+
+		plt.figure(3)
+		plt.plot(self.time,self.X[:,0],'r-',label='x(t)')
+		plt.plot(self.time,self.X[:,1],'g-',label='y(t)')
+		plt.plot(self.time,self.X[:,2],'b-',label='z(t)')
+		plt.plot(self.time,self.X[:,3],'r--',label='x`(t)')
+		plt.plot(self.time,self.X[:,4],'g--',label='y`(t)')
+		plt.plot(self.time,self.X[:,5],'b--',label='z`(t)')
+		plt.ylabel('values')
+		plt.xlabel('time')
+		plt.legend(loc='best')
+		plt.title('translational state evolution')
+
+		plt.figure(4)
+		plt.plot(self.time,self.X[:,6],'r-',label='phi(t)')
+		plt.plot(self.time,self.X[:,7],'g-',label='theta(t)')
+		plt.plot(self.time,self.X[:,8],'b-',label='psi(t)')
+		plt.plot(self.time,self.X[:,9],'r--',label='phi`(t)')
+		plt.plot(self.time,self.X[:,10],'g--',label='theta`(t)')
+		plt.plot(self.time,self.X[:,11],'b--',label='psi`(t)')
+		plt.ylabel('values')
+		plt.xlabel('time')
+		plt.legend(loc='best')
+		plt.title('rotational state evolution')
+
+		plt.show()
+
+
+	# 3d quadrotor model to be integrated
+	def model(self,x,t,u):
+		# x[0] - x ; x[1] - y ;  x[2] - z
+		# x[3] - x`; x[4] - y`;  x[5] - z`
+		# x[6] - phi;      x[7] - theta;     x[8] - psi
+		# x[9] - omega_x; x[10] - omega_y;  x[11] - omega_z
+		g = 9.8
+		m = 0.03
+
+		# compute r_dot
+		r_dot = np.matrix(x[3:6]).transpose()
+
+		# compute Omega_dot
+		omega = np.matrix(x[9:12]).transpose()
+		phi = x[6]
+		theta = x[7]
+		psi = x[8]
+		R0 = np.matrix([[1, 0 ,-np.sin(theta)],
+					    [0 ,np.cos(phi),np.cos(theta)*np.sin(phi)],
+					    [0 ,-np.sin(phi),np.cos(theta)*np.cos(phi)]])
+		R0_inv = np.linalg.inv(R0)
+		Omega_dot = R0_inv*omega
+
+		# compute r_ddot
+		Rx_phi = np.matrix([[1, 0, 0], [0, np.cos(phi), np.sin(phi)], [0, -np.sin(phi), np.cos(phi)]])
+		Ry_theta = np.matrix([[np.cos(theta), 0, -np.sin(theta)], [0, 1, 0], [np.sin(theta), 0, np.cos(theta)]])
+		Rz_psi = np.matrix([[np.cos(psi), np.sin(psi), 0], [-np.sin(psi), np.cos(psi), 0], [0, 0, 1]])
+		Rsb_T = Rx_phi*Ry_theta*Rz_psi
+		Rsb = np.transpose(Rsb_T)
+		g_vec = np.matrix([[0],[0],[-g]])
+		F_vec = np.matrix([[0],[0],[u[0]/m]])
+		r_ddot = g_vec + Rsb*F_vec
+
+		# compute omega_dot
+		Ib = np.matrix([[1.43,0,0],[0,1.43,0], [0,0,2.89]])*10**(-5)
+		Ib_inv = np.linalg.inv(Ib)
+		Moment = np.matrix(u[1:4]).transpose()
+		omega_dot = Ib_inv*(Moment - np.cross(omega,Ib*omega, axis=0) )
+
+		# put everything together
+		dxdt = np.array([r_dot, r_ddot, Omega_dot, omega_dot]) # 12 dimension
+		dxdt = np.reshape(dxdt,12)
+		return dxdt
+
+
+	def getReference(self, q0, qh, waypoints):
+		waypoint_num = len(waypoints)
+		waypoint_nparray = np.array(waypoints)
+		print(waypoint_nparray)
+		waypoint_vectors = list()
+		distance = list()
+		time_step = list()
+		total_time_step = 0
+		for i in range(waypoint_num-1):
+			waypoint_vectors.append(waypoint_nparray[i+1]-waypoint_nparray[i])
+			distance.append(np.linalg.norm(waypoint_vectors[i]))
+			time_step.append(int(distance[i]/2.0)+1) # max speed is 2m/s
+			total_time_step += time_step[i]
+		
+		print(waypoint_vectors)
+		print(distance)
+		print(time_step)
+		print(total_time_step)
+		self.N = total_time_step*10 + 1  # steps, int
+		self.time = np.linspace(0,total_time_step,self.N) # in every 0.1 second
+		self.Xr = np.zeros((self.N,12))
+		print(self.N)
+		print(self.time[-1])
+
+		psi0 = q0[3]
+		psih = qh[3]
+		psi_vector = psih - psi0
+		for step in range(self.N):
+			self.Xr[step,8] = psi0 + psi_vector*(float(step)/self.N)
+
+		past_time = 0
+		for i in range(waypoint_num-1):
+			init = waypoint_nparray[i]
+			vector = waypoint_vectors[i]
+			N = 10*time_step[i]
+			for step in range(past_time, past_time + N):
+				self.Xr[step,0:3] = init + vector*(float(step-past_time)/N)
+				self.Xr[step,3:6] = vector * (2.0 / np.linalg.norm(vector) ) # max 2m/s speed
+			past_time += N
+
+	def positionController(self, step):
+		m = 0.03
+		g = 9.8
+		kdx = 2
+		kpx = 1
+		kdy = 2
+		kpy = 1
+		kdz = 2
+		kpz = 1
+
+		# slicing 0:6 takes 0,1,2,3,4,5
+		R = self.X[step-1, 0:6] # translational state feedback
+		Omega = self.X[step-1,6:12] # rotational state feedback
+
+		x = self.Xr[step-1,0] # reference
+		y = self.Xr[step-1,1] # reference
+		z = self.Xr[step-1,2] # reference
+		x_dot = self.Xr[step-1,3] # reference
+		y_dot = self.Xr[step-1,4] # reference
+		z_dot = self.Xr[step-1,5] # reference
+		psi = self.Xr[step-1,8] # reference
+
+		x_control = kdx*(x_dot-R[3])+kpx*(x-R[0])
+		y_control = kdy*(y_dot-R[4])+kpy*(y-R[1])
+		x_control_hat = np.cos(Omega[2])*x_control+np.sin(Omega[2])*y_control
+		y_control_hat = -np.sin(Omega[2])*x_control+np.cos(Omega[2])*y_control
+		z_control = kdz*(z_dot-R[5])+kpz*(z-R[2])
+		self.F = np.array([ m*z_control/(np.cos(Omega[1])*np.cos(Omega[0]))+m*g ])
+		self.U[step-1,0] = self.F
+
+		phi_des = np.arcsin(-y_control_hat/g)
+		theta_des = np.arcsin(x_control_hat/(g*np.cos(Omega[0])))     # np.arcsin
+		psi_des = psi
+		self.Omega_des = np.array([phi_des, theta_des, psi_des])
+
+
+	def attitudeController(self, step):
+		kdphi = 8
+		kpphi = 16
+		kdtheta = 8
+		kptheta = 16
+		kdpsi = 2
+		kppsi = 1
+
+		Omega = np.matrix(self.X[step-1,6:9]).transpose()
+		omega = np.matrix(self.X[step-1,9:12]).transpose()
+		phi = Omega[0]
+		theta = Omega[1]
+		psi = Omega[2]
+		kd = np.matrix([[kdphi,0,0], [0,kdtheta,0], [0,0,kdpsi]], dtype='float')
+		kp = np.matrix([[kpphi,0,0], [0,kptheta,0], [0,0,kppsi]], dtype='float')
+		I = np.matrix([[1.43,0,0], [0,1.43,0], [0,0,2.89]])*10**(-5)
+
+		R0 = np.matrix([[1, 0 ,-np.sin(theta)],
+						[0 ,np.cos(phi),np.cos(theta)*np.sin(phi)],
+						[0 ,-np.sin(phi),np.cos(theta)*np.cos(phi)]], dtype='float')
+		R0_inv = np.linalg.inv(R0)
+		omega_bracket = np.matrix([[0,-omega[2],omega[1]],[omega[2],0,-omega[0]],[-omega[1],omega[0],0]])
+		omega_dot = omega_bracket*I*omega
+		Omega_des = np.matrix(self.Omega_des).transpose()
+
+		self.M = I*R0*(kd*(-R0_inv*omega)+kp*(Omega_des-Omega))+omega_dot
+		self.U[step-1,1:4] = np.array(self.M.transpose())
+
+
 if __name__ == '__main__':
     
     print('')
-    print('Please set the initial and goal configurations [q0,qh] = [x0 y0 z0 xh yh zh]')
-    ini_goal_s = input()
-    ini_goal = list(map(int, ini_goal_s.split()))
-    if not len(ini_goal) == 6:
-        print('WRONG input, exiting...')
-        sys.exit()  
+    print('Please set the initial and goal configurations [q0,qh] = [x0 y0 z0 yaw0 xh yh zh yawh]')
+    init_goal_s = raw_input()
+    init_goal = list(map(float, init_goal_s.split()))
+    assert len(init_goal) == 8
     print('Please set the map size, the number, locations and size of obstacles')
     print('[lx ly lz n x_ob1 y_ob1 z_ob1 lx_ob1 ly_ob1 lz_ob1 x_ob2 y_ob2 z_ob2 lx_ob2...]')
-    graph_s = input()
-    graph = list(map(int, graph_s.split()))
-    if not len(graph)%6 == 4:
-        print('WRONG input, exiting...')
-        sys.exit()     
+    graph_s = raw_input()
+    graph = list(map(float, graph_s.split()))
+    assert len(graph)%6 == 4
     print('Processing...')
     
-    Astar(str(ini_goal_s),str(graph_s))
+    waypoints = list()
+    Astar(init_goal,str(graph_s))
+    Model3D(init_goal, waypoints)
 
